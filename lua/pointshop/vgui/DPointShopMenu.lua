@@ -2,6 +2,11 @@ surface.CreateFont('PS_Heading', { font = 'coolvetica', size = 64 })
 surface.CreateFont('PS_Heading2', { font = 'coolvetica', size = 24 })
 surface.CreateFont('PS_Heading3', { font = 'coolvetica', size = 19 })
 
+MjPoint_ClientUseRGB = CreateClientConVar("mjps_rgb_use", 1, true, false)
+MjPoint_ClientR = CreateClientConVar("mjps_rgb_r", 44, true, false)
+MjPoint_ClientG = CreateClientConVar("mjps_rgb_g", 62, true, false)
+MjPoint_ClientB = CreateClientConVar("mjps_rgb_b", 80, true, false)
+
 surface.CreateFont( "PS_Default", {
 	font = system.IsLinux() and "Arial" or "Tahoma",
 	size = 13, weight = 500, antialias = true,
@@ -41,19 +46,23 @@ surface.CreateFont( "PS_MainCommunityHeading", {
 	size = 25, weight = 500, antialias = true,
 })
 
-local MjcBasicPS1SkinColor = {
-	CloseButton = Color(52, 73, 94),
-	CloseButtonHover = Color(79, 111, 143),
-	SidePanel = Color(44, 62, 80),
-	InfoPanel = Color(52, 73, 94),
-	HeaderColor = Color(44, 62, 80),
-	CatButtonColor = Color(44, 62, 80),
-	CurrentActiveCat = Color(52, 73, 94),
-	NotActiveCat = Color(79, 111, 143),
-	GivePointsButton = Color(52, 73, 94),
-	GivePointsButtonHover = Color(79, 111, 143),
-}
+	local MjcBasicPS1SkinColor = {
+		CloseButton = Color(52, 73, 94),
+		CloseButtonHover = Color(79, 111, 143),
+		SidePanel = Color(44, 62, 80),
+		InfoPanel = Color(52, 73, 94),
+		HeaderColor = Color(44, 62, 82),
+		CatButtonColor = Color(44, 62, 80),
+		CurrentActiveCat = Color(52, 73, 94),
+		NotActiveCat = Color(79, 111, 143),
+		GivePointsButton = Color(52, 73, 94),
+		GivePointsButtonHover = Color(79, 111, 143)
+	}
+MjPointshop = {}
 
+MjPointshop.UseInventory = true
+
+local ShowInventory = true
 local ALL_ITEMS = 1
 local OWNED_ITEMS = 2
 local UNOWNED_ITEMS = 3
@@ -83,7 +92,32 @@ local PANEL = {}
 function PANEL:Init()
 	self:SetSize( math.Clamp( 1100, 0, ScrW() ), math.Clamp( 780, 0, ScrH() ) )
 	self:SetPos((ScrW() / 2) - (self:GetWide() / 2), (ScrH() / 2) - (self:GetTall() / 2))
+	if MjPointshop.UseCustomClieintColours then
+		local clientColoursBut = vgui.Create('DButton', self)
+		clientColoursBut:SetFont('PS_Default')
+		clientColoursBut:SetText('')
+		clientColoursBut:SetPos(self:GetWide() - 65, 3)
+		clientColoursBut:SetIcon("icon16/user.png")
+		clientColoursBut.Paint = function(s, w, h) end
 
+		clientColoursBut.DoClick = function()
+			MjPS_ColourChoose()
+		end
+
+		function MjPS_ColourChoose()
+			local clientcolour = vgui.Create("DFrame")
+			clientcolour:SetSize(300, 200)
+			clientcolour:Center()
+			local mixer = vgui.Create("DColorMixer",clientcolour)
+			mixer:Dock(FILL)
+			mixer:SetColor(Color(MjPoint_ClientR:GetInt(), MjPoint_ClientG:GetInt(), MjPoint_ClientB:GetInt()))
+			mixer:SetConVarR("mjps_rgb_r")
+			mixer:SetConVarG("mjps_rgb_g")
+			mixer:SetConVarB("mjps_rgb_b")
+			local submit = vgui.Create("DButton",clientcolour)
+			submit:Dock(BOTTOM)
+		end
+	end
 	-- close button
 	local closeButton = vgui.Create('DButton', self)
 	closeButton:SetFont('marlett')
@@ -122,16 +156,253 @@ function PANEL:Init()
 	buttonContainer:Dock(TOP)
 	buttonContainer:DockMargin(0, 0, 0, 0)
 
+	if MjPointshop.UseInventory then
+		function InventoryMenu()
+			InventoryTab = vgui.Create('DPanel', self)
+			InventoryTab:Dock(FILL)
+			InventoryTab:DockMargin(0, 30, 0, 0)
+
+			InventoryTab.Paint = function(s, w, h)
+				draw.RoundedBox(0, 0, 0, w, h, Color(233, 233, 2333))
+				draw.DrawText("Inventory", "PS_Heading2", InventoryTab:GetWide() / 2, 15, Color(33, 19, 191), TEXT_ALIGN_CENTER)
+			end
+
+			local DScrollPanel = vgui.Create('DScrollPanel', InventoryTab)
+			DScrollPanel:Dock(FILL)
+			DScrollPanel:DockMargin(0, 35, 0, 0)
+			DScrollPanel:GetVBar().Paint = function() end
+DScrollPanel:GetVBar().btnUp.Paint = function() end
+DScrollPanel:GetVBar().btnDown.Paint = function() end
+DScrollPanel:GetVBar().btnGrip.Paint = function() end
+local vbar = DScrollPanel:GetVBar()
+vbar:SetWide(0)
+			local ItemLayout = vgui.Create('DIconLayout', DScrollPanel)
+			ItemLayout:Dock(FILL)
+			ItemLayout:DockMargin(20, 0, 0, 0)
+			ItemLayout:SetBorder(8)
+			ItemLayout:SetSpaceX(5)
+			ItemLayout:SetSpaceY(10)
+
+			for _, i in pairs(PS.Items) do
+				if LocalPlayer():PS_HasItem(i.ID) then
+					local model = vgui.Create('DPointShopItem')
+					model:SetData(i)
+					model:SetSize(120, 120)
+					ItemLayout:Add(model)
+				end
+			end
+		end
+	end
+	if (PS.Config.AdminCanAccessAdminTab and LocalPlayer():IsAdmin()) or (PS.Config.SuperAdminCanAccessAdminTab and LocalPlayer():IsSuperAdmin()) then
+		function Admin_Tab()
+			-- admin tab
+			AdminTab = vgui.Create('DPanel',self)
+			AdminTab:Dock(FILL)
+			AdminTab:DockMargin(0, 30, 0, 0)
+			AdminTab.Paint = function(s,w,h)
+					draw.RoundedBox(0,0,0,w,h,Color(233, 233, 233))
+			end
+			local ClientsList = vgui.Create('DListView', AdminTab)
+			ClientsList:DockMargin(10, 10, 10, 10)
+			ClientsList:Dock(FILL)
+			ClientsList:SetMultiSelect(false)
+			ClientsList:AddColumn('Name')
+			ClientsList:AddColumn('Points'):SetFixedWidth(60)
+			ClientsList:AddColumn('Items'):SetFixedWidth(60)
+
+			ClientsList.OnClickLine = function(parent, line, selected)
+				local ply = line.Player
+				local menu = DermaMenu()
+
+				menu:AddOption('Set ' .. PS.Config.PointsName .. '...', function()
+					Derma_StringRequest("Set " .. PS.Config.PointsName .. " for " .. ply:GetName(), "Set " .. PS.Config.PointsName .. " to...", "", function(str)
+						if not str or not tonumber(str) then return end
+						net.Start('PS_SetPoints')
+						net.WriteEntity(ply)
+						net.WriteInt(tonumber(str), 32)
+						net.SendToServer()
+					end)
+				end)
+
+				menu:AddOption('Give ' .. PS.Config.PointsName .. '...', function()
+					Derma_StringRequest("Give " .. PS.Config.PointsName .. " to " .. ply:GetName(), "Give " .. PS.Config.PointsName .. "...", "", function(str)
+						if not str or not tonumber(str) then return end
+						net.Start('PS_GivePoints')
+						net.WriteEntity(ply)
+						net.WriteInt(tonumber(str), 32)
+						net.SendToServer()
+					end)
+				end)
+
+				menu:AddOption('Take ' .. PS.Config.PointsName .. '...', function()
+					Derma_StringRequest("Take " .. PS.Config.PointsName .. " from " .. ply:GetName(), "Take " .. PS.Config.PointsName .. "...", "", function(str)
+						if not str or not tonumber(str) then return end
+						net.Start('PS_TakePoints')
+						net.WriteEntity(ply)
+						net.WriteInt(tonumber(str), 32)
+						net.SendToServer()
+					end)
+				end)
+
+				menu:AddSpacer()
+
+				BuildItemMenu(menu:AddSubMenu('Give Item'), ply, UNOWNED_ITEMS, function(item_id)
+					net.Start('PS_GiveItem')
+					net.WriteEntity(ply)
+					net.WriteString(item_id)
+					net.SendToServer()
+				end)
+
+				BuildItemMenu(menu:AddSubMenu('Take Item'), ply, OWNED_ITEMS, function(item_id)
+					net.Start('PS_TakeItem')
+					net.WriteEntity(ply)
+					net.WriteString(item_id)
+					net.SendToServer()
+				end)
+
+				menu:Open()
+			end
+
+			self.ClientsList = ClientsList
+
+			AdminTab.Think = function()
+			if self.ClientsList then
+				local lines = self.ClientsList:GetLines()
+
+				for _, ply in pairs(player.GetAll()) do
+					local found = false
+
+					for _, line in pairs(lines) do
+						if line.Player == ply then
+							found = true
+						end
+					end
+
+					if not found then
+						self.ClientsList:AddLine(ply:GetName(), ply:PS_GetPoints(), table.Count(ply:PS_GetItems())).Player = ply
+					end
+				end
+
+				for i, line in pairs(lines) do
+					if IsValid(line.Player) then
+						local ply = line.Player
+
+						line:SetValue(1, ply:GetName())
+						line:SetValue(2, ply:PS_GetPoints())
+						line:SetValue(3, table.Count(ply:PS_GetItems()))
+					else
+						self.ClientsList:RemoveLine(i)
+					end
+				end
+			end
+			end
+		end
+	end
+	if MjPointshop.UseInventory then
+		local InventoryButton = vgui.Create('DButton', SidePanel)
+		InventoryButton:Dock(BOTTOM)
+		InventoryButton:SetFont('PS_Heading3')
+		InventoryButton:SetText('Inventory')
+		InventoryButton:SetIcon("icon16/user.png")
+		InventoryButton:SetColor(Color(255, 255, 255))
+		InventoryButton:SetSize(86, 30)
+
+		--closeButton:SetPos(self:GetWide() - 160, 0)
+		InventoryButton.DoClick = function()
+			if IsValid(AdminTab) then
+				AdminTab:Remove()
+			end
+
+			if IsValid(InventoryTab) then
+				InventoryTab:Remove()
+				InvActive = false
+			elseif not IsValid(InventoryTab) then
+				InventoryMenu()
+				InvActive = true
+			end
+		end
+
+		InventoryButton.Paint = function(s, w, h)
+			draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 0))
+		end
+
+		InventoryButton.OnCursorEntered = function()
+			InventoryButton.Paint = function(s, w, h)
+				draw.RoundedBox(0, 0, 0, w, h, MjcBasicPS1SkinColor.CloseButtonHover)
+			end
+		end
+
+		InventoryButton.OnCursorExited = function()
+			InventoryButton.Paint = function(s, w, h)
+				draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 0))
+			end
+		end
+	end
+
+	//Admin Button
+	if (PS.Config.AdminCanAccessAdminTab and LocalPlayer():IsAdmin()) or (PS.Config.SuperAdminCanAccessAdminTab and LocalPlayer():IsSuperAdmin()) then
+		local AdminButton = vgui.Create('DButton', SidePanel)
+		AdminButton:Dock(BOTTOM)
+		AdminButton:SetFont('PS_Heading3')
+		AdminButton:SetText('Admin')
+		AdminButton:SetIcon("icon16/shield.png")
+		AdminButton:SetColor(Color(255, 255, 255))
+		AdminButton:SetSize(86, 30)
+
+		--closeButton:SetPos(self:GetWide() - 160, 0)
+		AdminButton.DoClick = function()
+			if IsValid(AdminTab) then
+				AdminTab:Remove()
+			elseif not IsValid(AdminTab) then
+				Admin_Tab()
+			end
+		end
+
+		AdminButton.Paint = function(s, w, h)
+			draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 0))
+		end
+
+		AdminButton.OnCursorEntered = function()
+			AdminButton.Paint = function(s, w, h)
+				draw.RoundedBox(0, 0, 0, w, h, MjcBasicPS1SkinColor.CloseButtonHover)
+			end
+		end
+
+		AdminButton.OnCursorExited = function()
+			AdminButton.Paint = function(s, w, h)
+				draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 0))
+			end
+		end
+	end
+
 	local InfoPanel = vgui.Create("DPanel", SidePanel)
 	InfoPanel:SetSize(250,60)
 	InfoPanel:Dock(BOTTOM)
 	InfoPanel:DockMargin(0, 5, 0, 0)
 	InfoPanel.Paint = function(s,w,h)
 		draw.RoundedBox(0,0,0,w,h,MjcBasicPS1SkinColor.InfoPanel)
-		draw.SimpleText('You have ' .. LocalPlayer():PS_GetPoints() .. ' ' .. PS.Config.PointsName, 'PS_Heading3', 155, 31, color_white, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+		--draw.SimpleText( , 'PS_Heading3', , 23, color_white, TEXT_ALIGN_RIGHT, TEXT_ALIGN_RIGHT)
+		--draw.SimpleText(LocalPlayer():Nick(), 'PS_Heading3', 175, 5, color_white, TEXT_ALIGN_RIGHT, TEXT_ALIGN_RIGHT)
 	end
+	local avatr = vgui.Create("AvatarImage", InfoPanel)
+	avatr:SetPlayer(LocalPlayer(),64)
+	avatr:Dock(LEFT)
 
+	points = vgui.Create("DLabel", InfoPanel)
+	points:Dock(TOP)
+	points:DockMargin(5,10,30,0)
+	points:SetFont("PS_Heading3")
+	points:SetText(LocalPlayer():Nick())
+	points:SizeToContents()
+	local points = vgui.Create("DLabel", InfoPanel)
+	points:Dock(BOTTOM)
+	points:DockMargin(5,-30,35,5)
+	points:SetFont("PS_Heading3")
+	points:SetText(PS.Config.PointsName..": " .. LocalPlayer():PS_GetPoints())
+	points:SizeToContents()
 
+	--PrintTable(i)
+	-- close button
 	local container = vgui.Create("DPanel", self)
 
 	if PS.Config.DisplayPreviewInMenu then
@@ -228,6 +499,8 @@ function PANEL:Init()
 		if firstBtn then firstBtn = false; btn:SetActive(true) end
 
 		btn.DoClick = function(pnl)
+			if IsValid(InventoryTab) then InventoryTab:Remove() end
+			if IsValid(AdminTab) then AdminTab:Remove() end
 			for k, v in pairs(btns) do v:SetActive(false) v:OnDeactivate() end
 			pnl:SetActive(true) pnl:OnActivate()
 		end
@@ -270,6 +543,8 @@ function PANEL:Init()
 
 		return btn
 	end
+
+
 
 	-- sorting
 	local categories = {}
@@ -343,28 +618,17 @@ function PANEL:Init()
 
 		local ShopCategoryTabLayout = vgui.Create('DIconLayout', DScrollPanel)
 		ShopCategoryTabLayout:Dock(FILL)
-		ShopCategoryTabLayout:DockMargin(12,0,0,0)
+		ShopCategoryTabLayout:DockMargin(20,0,0,0)
 
 		ShopCategoryTabLayout:SetBorder(8)
-		ShopCategoryTabLayout:SetSpaceX(10)
+		ShopCategoryTabLayout:SetSpaceX(5)
 		ShopCategoryTabLayout:SetSpaceY(10)
-
-		local sbar = DScrollPanel:GetVBar()
-		function sbar:Paint( w, h )
-	draw.RoundedBox( 0, 0, 0, w, h, color_white )
-	end
-
-		function sbar.btnUp:Paint( w, h )
-		draw.RoundedBox( 0, 0, 0, w, h, Color(52, 73, 94)  )
-		end
-
-		function sbar.btnDown:Paint(w,h)
-			draw.RoundedBox( 0, 0, 0, w, h,Color(52, 73, 94) )
-		end
-
-		function sbar.btnGrip:Paint( w, h )
-		draw.RoundedBox( 0, 0, 0, w, h,Color(44, 62, 80) )
-		end
+		DScrollPanel:GetVBar().Paint = function() end
+		DScrollPanel:GetVBar().btnUp.Paint = function() end
+		DScrollPanel:GetVBar().btnDown.Paint = function() end
+		DScrollPanel:GetVBar().btnGrip.Paint = function() end
+		local vbar = DScrollPanel:GetVBar()
+		vbar:SetWide(0)
 
 
 		DScrollPanel:AddItem(ShopCategoryTabLayout)
@@ -384,96 +648,6 @@ function PANEL:Init()
 		end
 
 		createBtn(CATEGORY.Name, 'icon16/' .. CATEGORY.Icon .. '.png', ShopCategoryTab, nil, CATEGORY.Description)
-	end
-
-	if (PS.Config.AdminCanAccessAdminTab and LocalPlayer():IsAdmin()) or (PS.Config.SuperAdminCanAccessAdminTab and LocalPlayer():IsSuperAdmin()) then
-		-- admin tab
-		local AdminTab = vgui.Create('DPanel')
-
-		local ClientsList = vgui.Create('DListView', AdminTab)
-		ClientsList:DockMargin(10, 10, 10, 10)
-		ClientsList:Dock(FILL)
-
-		ClientsList:SetMultiSelect(false)
-		ClientsList:AddColumn('Name')
-		ClientsList:AddColumn('Points'):SetFixedWidth(60)
-		ClientsList:AddColumn('Items'):SetFixedWidth(60)
-
-		ClientsList.OnClickLine = function(parent, line, selected)
-			local ply = line.Player
-
-			local menu = DermaMenu()
-
-			menu:AddOption('Set '..PS.Config.PointsName..'...', function()
-				Derma_StringRequest(
-					"Set "..PS.Config.PointsName.." for " .. ply:GetName(),
-					"Set "..PS.Config.PointsName.." to...",
-					"",
-					function(str)
-						if not str or not tonumber(str) then return end
-
-						net.Start('PS_SetPoints')
-							net.WriteEntity(ply)
-							net.WriteInt(tonumber(str), 32)
-						net.SendToServer()
-					end
-				)
-			end)
-
-			menu:AddOption('Give '..PS.Config.PointsName..'...', function()
-				Derma_StringRequest(
-					"Give "..PS.Config.PointsName.." to " .. ply:GetName(),
-					"Give "..PS.Config.PointsName.."...",
-					"",
-					function(str)
-						if not str or not tonumber(str) then return end
-
-						net.Start('PS_GivePoints')
-							net.WriteEntity(ply)
-							net.WriteInt(tonumber(str), 32)
-						net.SendToServer()
-					end
-				)
-			end)
-
-			menu:AddOption('Take '..PS.Config.PointsName..'...', function()
-				Derma_StringRequest(
-					"Take "..PS.Config.PointsName.." from " .. ply:GetName(),
-					"Take "..PS.Config.PointsName.."...",
-					"",
-					function(str)
-						if not str or not tonumber(str) then return end
-
-						net.Start('PS_TakePoints')
-							net.WriteEntity(ply)
-							net.WriteInt(tonumber(str), 32)
-						net.SendToServer()
-					end
-				)
-			end)
-
-			menu:AddSpacer()
-
-			BuildItemMenu(menu:AddSubMenu('Give Item'), ply, UNOWNED_ITEMS, function(item_id)
-				net.Start('PS_GiveItem')
-					net.WriteEntity(ply)
-					net.WriteString(item_id)
-				net.SendToServer()
-			end)
-
-			BuildItemMenu(menu:AddSubMenu('Take Item'), ply, OWNED_ITEMS, function(item_id)
-				net.Start('PS_TakeItem')
-					net.WriteEntity(ply)
-					net.WriteString(item_id)
-				net.SendToServer()
-			end)
-
-			menu:Open()
-		end
-
-		self.ClientsList = ClientsList
-
-		createBtn("Admin", 'icon16/shield.png', AdminTab, RIGHT)
 	end
 
 	-- preview panel
@@ -555,35 +729,6 @@ function PANEL:Init()
 end
 
 function PANEL:Think()
-	if self.ClientsList then
-		local lines = self.ClientsList:GetLines()
-
-		for _, ply in pairs(player.GetAll()) do
-			local found = false
-
-			for _, line in pairs(lines) do
-				if line.Player == ply then
-					found = true
-				end
-			end
-
-			if not found then
-				self.ClientsList:AddLine(ply:GetName(), ply:PS_GetPoints(), table.Count(ply:PS_GetItems())).Player = ply
-			end
-		end
-
-		for i, line in pairs(lines) do
-			if IsValid(line.Player) then
-				local ply = line.Player
-
-				line:SetValue(1, ply:GetName())
-				line:SetValue(2, ply:PS_GetPoints())
-				line:SetValue(3, table.Count(ply:PS_GetItems()))
-			else
-				self.ClientsList:RemoveLine(i)
-			end
-		end
-	end
 end
 
 function PANEL:Paint(w, h)
