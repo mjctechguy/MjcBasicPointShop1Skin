@@ -169,7 +169,7 @@ function PANEL:Init()
 
 			local DScrollPanel = vgui.Create('DScrollPanel', InventoryTab)
 			DScrollPanel:Dock(FILL)
-			DScrollPanel:DockMargin(0, 35, 0, 0)
+			DScrollPanel:DockMargin(0, 35, 0, 10)
 			DScrollPanel:GetVBar().Paint = function() end
 DScrollPanel:GetVBar().btnUp.Paint = function() end
 DScrollPanel:GetVBar().btnDown.Paint = function() end
@@ -381,25 +381,20 @@ vbar:SetWide(0)
 	InfoPanel:DockMargin(0, 5, 0, 0)
 	InfoPanel.Paint = function(s,w,h)
 		draw.RoundedBox(0,0,0,w,h,MjcBasicPS1SkinColor.InfoPanel)
-		--draw.SimpleText( , 'PS_Heading3', , 23, color_white, TEXT_ALIGN_RIGHT, TEXT_ALIGN_RIGHT)
+		--draw.SimpleText(PS.Config.PointsName..": " .. LocalPlayer():PS_GetPoints() , 'PS_Heading3',173, 23, color_white, TEXT_ALIGN_RIGHT, TEXT_ALIGN_RIGHT)
 		--draw.SimpleText(LocalPlayer():Nick(), 'PS_Heading3', 175, 5, color_white, TEXT_ALIGN_RIGHT, TEXT_ALIGN_RIGHT)
+       surface.SetFont( "PS_Heading3" )
+	   surface.SetTextColor( 255, 255, 255, 255 )
+	   surface.SetTextPos(69,34)
+	   surface.DrawText( PS.Config.PointsName..": " .. LocalPlayer():PS_GetPoints())
+       surface.SetFont( "PS_Heading3" )
+	   surface.SetTextColor( 255, 255, 255, 255 )
+	   surface.SetTextPos(69,10)
+	   surface.DrawText( LocalPlayer():Nick())
 	end
 	local avatr = vgui.Create("AvatarImage", InfoPanel)
 	avatr:SetPlayer(LocalPlayer(),64)
 	avatr:Dock(LEFT)
-
-	points = vgui.Create("DLabel", InfoPanel)
-	points:Dock(TOP)
-	points:DockMargin(5,10,30,0)
-	points:SetFont("PS_Heading3")
-	points:SetText(LocalPlayer():Nick())
-	points:SizeToContents()
-	local points = vgui.Create("DLabel", InfoPanel)
-	points:Dock(BOTTOM)
-	points:DockMargin(5,-30,35,5)
-	points:SetFont("PS_Heading3")
-	points:SetText(PS.Config.PointsName..": " .. LocalPlayer():PS_GetPoints())
-	points:SizeToContents()
 
 	--PrintTable(i)
 	-- close button
